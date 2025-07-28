@@ -9,27 +9,70 @@ st.header('Análisis de Anuncios de Venta de Coches en EE.UU.')
 # Cargar los datos
 car_data = pd.read_csv('vehicles_us.csv')
 
-# Mostrar vista previa de los datos
-st.write('Vista previa de los datos:')
-st.dataframe(car_data.head())
+# -------------------------------
+# FILTROS EN LA BARRA LATERAL
+# -------------------------------
+st.sidebar.header('Filtros')
 
+# Filtro por condición
+selected_condition = st.sidebar.selectbox(
+    'Condición del vehículo',
+    options=['Todas'] + sorted(car_data['condition'].dropna().unique())
+)
 
+# Filtro por año del modelo
+selected_year = st.sidebar.selectbox(
+    'Año del modelo',
+    options=['Todos'] + sorted(car_data['model_year'].dropna().unique())
+)
 
-# Casillas de verificación
-build_histogram = st.checkbox('Mostrar histograma del odómetro')
-build_scatter = st.checkbox('Mostrar dispersión precio vs odómetro')
+# Filtro por odómetro
+max_km = st.sidebar.slider(
+    'Máximo odómetro (km)',
+    0,
+    int(car_data['odometer'].max()),
+    100000
+)
 
+# Checkboxes para visualizaciones
+st.sidebar.header('Visualizaciones')
+build_histogram = st.sidebar.checkbox('Histograma del odómetro')
+build_scatter = st.sidebar.checkbox('Dispersión precio vs odómetro')
+build_bar = st.sidebar.checkbox('Barras por tipo de coche')
+
+# -------------------------------
+# APLICAR FILTROS
+# -------------------------------
+filtered_data = car_data.copy()
+
+if selected_condition != 'Todas':
+    filtered_data = filtered_data[filtered_data['condition'] == selected_condition]
+
+if selected_year != 'Todos':
+    filtered_data = filtered_data[filtered_data['model_year'] == selected_year]
+
+filtered_data = filtered_data[filtered_data['odometer'] <= max_km]
+
+# -------------------------------
+# MOSTRAR RESULTADOS FILTRADOS
+# -------------------------------
+st.subheader('Resultados filtrados:')
+st.dataframe(filtered_data)
+
+# -------------------------------
+# VISUALIZACIONES
+# -------------------------------
 if build_histogram:
-    st.write('Creación de un histograma para el odómetro')
-    fig = go.Figure(data=[go.Histogram(x=car_data['odometer'])])
+    st.subheader('Histograma del Odómetro')
+    fig = go.Figure(data=[go.Histogram(x=filtered_data['odometer'])])
     fig.update_layout(title='Distribución del Odómetro')
     st.plotly_chart(fig, use_container_width=True)
 
 if build_scatter:
-    st.write('Creación de un gráfico de dispersión para precio vs odómetro')
+    st.subheader('Dispersión Precio vs Odómetro')
     fig = go.Figure(data=[go.Scatter(
-        x=car_data['odometer'],
-        y=car_data['price'],
+        x=filtered_data['odometer'],
+        y=filtered_data['price'],
         mode='markers',
         marker=dict(color='green', opacity=0.5)
     )])
@@ -39,62 +82,24 @@ if build_scatter:
         yaxis_title='Precio'
     )
     st.plotly_chart(fig, use_container_width=True)
-    
-    
-    
-# Filtros interactivos - Filtrar por condicion
-# Menú desplegable para condición
-selected_condition = st.selectbox(
-    'Filtrar por condición',
-    options=['Todas'] + sorted(car_data['condition'].dropna().unique())
-)
 
-# Menú desplegable para año del modelo
-selected_year = st.selectbox(
-    'Filtrar por año del modelo',
-    options=['Todos'] + sorted(car_data['model_year'].dropna().unique())
-)
+if build_bar:
+    st.subheader('Cantidad de anuncios por tipo de coche')
+    type_counts = filtered_data['type'].value_counts().reset_index()
+    type_counts.columns = ['type', 'count']
+    fig = px.bar(
+        type_counts,
+        x='type',
+        y='count',
+        labels={'type': 'Tipo de vehículo', 'count': 'Cantidad'},
+        title='Cantidad de anuncios por tipo de coche'
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-# Aplicar filtros
-filtered_data = car_data.copy()
-
-if selected_condition != 'Todas':
-    filtered_data = filtered_data[filtered_data['condition'] == selected_condition]
-
-if selected_year != 'Todos':
-    filtered_data = filtered_data[filtered_data['model_year'] == selected_year]
-
-# Mostrar los datos filtrados
-st.write('Resultados filtrados:')
-st.dataframe(filtered_data)
-
-    
-    
-# grafico de barras por tipo de carro
-# Crear un DataFrame con los conteos por tipo
-type_counts = car_data['type'].value_counts().reset_index()
-type_counts.columns = ['type', 'count']  # Renombrar columnas para claridad
-
-# Crear gráfico de barras
-fig = px.bar(type_counts,
-             x='type',
-             y='count',
-             labels={'type': 'Tipo de vehículo', 'count': 'Cantidad'},
-             title='Cantidad de anuncios por tipo de coche')
-
-st.plotly_chart(fig, use_container_width=True)
-
-max_km = st.slider('Filtrar por máximo odómetro (km)', 0, int(car_data['odometer'].max()), 100000)
-filtered_data = car_data[car_data['odometer'] <= max_km]
-st.dataframe(filtered_data)
-
-
-#Resumen de estaditicas basicas
-st.write('Estadísticas del conjunto de datos:')
-st.write(f'Número total de anuncios: {len(car_data)}')
-st.write(f'Precio medio: ${round(car_data["price"].mean(), 2)}')
-st.write(f'Odómetro promedio: {round(car_data["odometer"].mean(), 2)} km')
-
-
-
-
+# -------------------------------
+# ESTADÍSTICAS BÁSICAS
+# -------------------------------
+st.subheader('Estadísticas del conjunto de datos filtrado:')
+st.write(f'Número total de anuncios: {len(filtered_data)}')
+st.write(f'Precio medio: ${round(filtered_data["price"].mean(), 2)}')
+st.write(f'Odómetro promedio: {round(filtered_data["odometer"].mean(), 2)} km')
